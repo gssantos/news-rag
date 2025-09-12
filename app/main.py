@@ -8,8 +8,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints import router as v1_router
+from app.api.topic_endpoints import router as topic_router
 from app.core.config import request_id_var, settings, setup_logging
+from app.core.scheduler import scheduler
 from app.db.session import engine
+from app.utils.topic_loader import load_initial_topics
 
 # Ensure logging is configured (it runs on import in config.py, but explicit call ensures setup)
 setup_logging()
@@ -30,9 +33,36 @@ async def lifespan(app: FastAPI):
         logger.critical(f"Database connection failed on startup: {e}")
         # In a production environment, we might want to exit here if the DB is critical.
 
+    # Load initial topics from configuration file if it exists
+    try:
+        await load_initial_topics()
+    except Exception as e:
+        logger.error(f"Failed to load initial topics: {e}")
+        # Continue running even if topic loading fails
+
+    # Start the ingestion scheduler if enabled
+    if settings.ENABLE_SCHEDULER:
+        try:
+            await scheduler.start()
+            logger.info("Ingestion scheduler started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start ingestion scheduler: {e}")
+            # Continue running without scheduler if it fails
+    else:
+        logger.info("Scheduler is disabled via configuration")
+
     yield
+
     # Shutdown
     logger.info("Application shutting down...")
+
+    # Shutdown the scheduler if it was started
+    if settings.ENABLE_SCHEDULER:
+        try:
+            await scheduler.shutdown()
+        except Exception as e:
+            logger.error(f"Error shutting down scheduler: {e}")
+
     await engine.dispose()
 
 
@@ -121,6 +151,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 # Include the API router
 # Using a version prefix is good practice, although not strictly required by the prompt.
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(topic_router, prefix="/api/v1")
 
 
 # Health check endpoint (Requirement 10)

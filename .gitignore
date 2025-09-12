@@ -28,3 +28,6 @@ dmypy.json
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Scratch files
+.scratch/

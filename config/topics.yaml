@@ -1,0 +1,42 @@
+# Example topic configuration file
+# This file can be used to define initial topics and sources
+# Copy this to topics.yaml and customize for your needs
+
+topics:
+  - name: "Crude Oil Markets"
+    slug: "crude-oil-markets"
+    description: "News and analysis about crude oil markets, prices, and trading"
+    keywords:
+      - "crude oil"
+      - "WTI"
+      - "Brent"
+      - "oil prices"
+      - "petroleum"
+      - "OPEC"
+    schedule_interval_minutes: 60  # Check every hour
+    is_active: true
+    sources:
+      - name: "OilPrice.com RSS"
+        url: "https://oilprice.com/rss/main"
+        source_type: "rss"
+        is_active: true
+
+  - name: "Oil Freight & Shipping"
+    slug: "oil-freight-shipping"
+    description: "News about oil tanker freight rates, shipping routes, and maritime transport"
+    keywords:
+      - "tanker"
+      - "VLCC"
+      - "Suezmax"
+      - "Aframax"
+      - "freight rates"
+      - "shipping"
+      - "maritime"
+      - "Baltic Exchange"
+    schedule_interval_minutes: 120  # Check every 2 hours
+    is_active: true
+    sources:
+      - name: "S&P Global Commodity Insights RSS"
+        url: "https://www.spglobal.com/commodity-insights/en/rss/shipping"
+        source_type: "rss"
+        is_active: true

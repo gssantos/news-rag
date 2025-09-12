@@ -29,22 +29,28 @@ newspaper3k = "^0.2.8"
 lxml = {extras = ["html_clean"], version = "^6.0.1"}
 beautifulsoup4 = "^4.13.5" # Required by WebBaseLoader
 
+# Scheduler and Background Jobs
+apscheduler = "^3.10.4"
+feedparser = "^6.0.11"
+httpx = "^0.27.0"
+
 # Utilities
 numpy = "^2.0.0" # For embedding normalization
 tenacity = "^8.5.0" # For robust retries
 python-dateutil = "^2.9.0" # For robust date parsing
 python-dotenv = "^1.0.1"
+pyyaml = "^6.0.2"  # For YAML configuration files
 
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
 pytest-asyncio = "^0.23.7"
-httpx = "^0.27.0"
 black = "^24.8.2"
 isort = "^5.13.2"
 mypy = "^1.13.0"
 ruff = "^0.7.0"
 types-python-dateutil = "^2.9.0.20250822"
+types-pyyaml = "^6.0.12.20250822"
 
 [build-system]
 requires = ["poetry-core"]

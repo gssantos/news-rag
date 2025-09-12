@@ -12,6 +12,11 @@ A minimal service to ingest, summarize, and search news articles using FastAPI, 
 - **Docker Support**: Containerized deployment with Docker Compose
 - **Database Migrations**: Automated schema management with Alembic
 - **Health Monitoring**: Built-in health check endpoints
+- **Automatic Scheduled Ingestion**: Continuously ingest articles for configured topics
+- **Topic Management**: Easy configuration and management of news topics and sources
+- **RSS Feed Support**: Automatic discovery and ingestion from RSS feeds
+- **Deduplication**: Prevent duplicate articles using URL-based deduplication
+- **Ingestion Monitoring**: Track ingestion status and statistics
 
 ## API Endpoints
 
@@ -22,6 +27,18 @@ A minimal service to ingest, summarize, and search news articles using FastAPI, 
 | `POST` | `/api/v1/ingest/url` | Ingest article from URL |
 | `GET` | `/api/v1/search` | Search articles with semantic similarity |
 | `GET` | `/api/v1/content/{id}` | Get full article content by ID |
+| **Topics** | | |
+| `POST` | `/api/v1/topics` | Create a new topic |
+| `GET` | `/api/v1/topics` | List all topics |
+| `GET` | `/api/v1/topics/{id}` | Get topic details |
+| `PATCH` | `/api/v1/topics/{id}` | Update a topic |
+| `DELETE` | `/api/v1/topics/{id}` | Delete a topic |
+| `POST` | `/api/v1/topics/{id}/sources` | Add source to topic |
+| `GET` | `/api/v1/topics/{id}/sources` | List topic sources |
+| `DELETE` | `/api/v1/topics/{id}/sources/{source_id}` | Delete source |
+| `POST` | `/api/v1/topics/{id}/ingest` | Trigger manual ingestion |
+| `GET` | `/api/v1/topics/{id}/runs` | Get ingestion history |
+| `GET` | `/api/v1/topics/stats/summary` | Get ingestion statistics |
 
 ## Quick Start with Docker Compose
 
@@ -160,6 +177,135 @@ curl -X GET "http://localhost:8080/api/v1/content/57f0fc26-1e6d-402d-b478-fbcba8
 | `MAX_CONTENT_CHARS` | `200000` | Maximum content length |
 | `API_KEY` | `None` | Optional API key for endpoint protection |
 | `ALLOWED_DOMAINS` | `None` | Comma-separated list of allowed domains |
+| `ENABLE_SCHEDULER` | `True` | Enable automatic scheduled ingestion |
+| `SCHEDULER_MAX_INSTANCES` | `1` | Maximum concurrent ingestion tasks |
+| `DEFAULT_SCHEDULE_INTERVAL_MINUTES` | `60` | Default ingestion interval |
+
+## Automatic Ingestion Setup
+
+The service supports automatic, scheduled ingestion of articles for configured topics. This feature enables continuous monitoring of news sources for specific domains like energy markets, shipping, and commodities.
+
+### Topic Configuration
+
+Topics can be configured in two ways:
+
+#### 1. Using the API
+
+Create topics programmatically:
+
+```bash
+# Create a topic for crude oil markets
+curl -X POST "http://localhost:8080/api/v1/topics" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Crude Oil Markets",
+    "slug": "crude-oil-markets",
+    "description": "News about crude oil prices and markets",
+    "keywords": ["crude oil", "WTI", "Brent", "OPEC"],
+    "schedule_interval_minutes": 60,
+    "is_active": true
+  }'
+
+# Add an RSS source to the topic
+curl -X POST "http://localhost:8080/api/v1/topics/{topic_id}/sources" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "OilPrice.com RSS",
+    "url": "https://oilprice.com/rss/main",
+    "source_type": "rss",
+    "is_active": true
+  }'
+```
+
+#### 2. Using YAML Configuration
+
+Create a `config/topics.yaml` file:
+
+```yaml
+topics:
+  - name: "Crude Oil Markets"
+    slug: "crude-oil-markets"
+    description: "News about crude oil markets"
+    keywords:
+      - "crude oil"
+      - "WTI"
+      - "Brent"
+    schedule_interval_minutes: 60
+    is_active: true
+    sources:
+      - name: "OilPrice.com RSS"
+        url: "https://oilprice.com/rss/main"
+        source_type: "rss"
+        is_active: true
+```
+
+Topics defined in `topics.yaml` are loaded automatically on startup if the file exists.
+
+### Scheduling Options
+
+- **Interval-based**: Topics are scheduled to run at fixed intervals (5 minutes to 1 week)
+- **Manual Triggering**: Use the API to trigger immediate ingestion for any topic
+- **Active/Inactive**: Topics can be paused without deletion
+
+### Monitoring Ingestion
+
+#### View Ingestion Status
+
+```bash
+# Get overall statistics
+curl "http://localhost:8080/api/v1/topics/stats/summary"
+
+# Get ingestion history for a topic
+curl "http://localhost:8080/api/v1/topics/{topic_id}/runs"
+
+# View logs
+docker compose logs -f app | grep "ingestion"
+```
+
+#### Understanding Ingestion Runs
+
+Each ingestion run tracks:
+- **articles_discovered**: Total URLs found from all sources
+- **articles_ingested**: Successfully processed new articles
+- **articles_duplicates**: Articles already in database (deduplication working)
+- **articles_failed**: Articles that failed to process
+- **status**: `success`, `partial`, or `failed`
+- **error_messages**: Detailed error information
+
+### Deduplication
+
+The system prevents duplicate articles through:
+1. **URL-based deduplication**: Articles with the same URL are not re-ingested
+2. **Database constraints**: Unique index on article URLs
+3. **Topic linking**: Existing articles are linked to new topics without re-processing
+
+### Best Practices
+
+1. **Start with Conservative Schedules**: Begin with longer intervals (2-4 hours) to avoid rate limiting
+2. **Monitor Source Health**: Check `consecutive_failures` on sources to identify problematic feeds
+3. **Use Keywords Wisely**: Keywords help filter relevant content during ingestion
+4. **Regular Cleanup**: Periodically review and remove inactive topics/sources
+5. **API Key Protection**: Use `API_KEY` environment variable in production
+
+### Troubleshooting
+
+**Issue: No articles being ingested**
+- Check if the topic and sources are active
+- Verify RSS feed URLs are accessible
+- Review logs for specific error messages
+
+**Issue: High duplicate count**
+- This is normal and indicates deduplication is working
+- RSS feeds often contain the same articles for days
+
+**Issue: Ingestion taking too long**
+- Reduce the number of sources per topic
+- Increase `HTTP_FETCH_TIMEOUT_SECONDS` for slow sources
+- Consider increasing `schedule_interval_minutes`
+
+**Issue: Memory/CPU usage high**
+- Reduce `SCHEDULER_MAX_INSTANCES` to limit concurrent tasks
+- Stagger topic schedules to avoid simultaneous runs
 
 ## Security Features
 
