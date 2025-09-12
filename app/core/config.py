@@ -46,6 +46,24 @@ class Settings(BaseSettings):
         200000, description="Maximum characters of content to process"
     )
 
+    # Scheduler Settings
+    ENABLE_SCHEDULER: bool = Field(
+        True, description="Enable automatic scheduled ingestion"
+    )
+    SCHEDULER_MAX_INSTANCES: int = Field(
+        1, description="Maximum concurrent ingestion tasks"
+    )
+    SCHEDULER_MISFIRE_GRACE_TIME: int = Field(
+        3600, description="Grace time in seconds for missed jobs"
+    )
+    DEFAULT_SCHEDULE_INTERVAL_MINUTES: int = Field(
+        60, description="Default ingestion interval in minutes"
+    )
+    RSS_DATE_THRESHOLD_HOURS: int = Field(
+        24,
+        description="RSS articles date threshold in hours (only articles newer than this will be ingested)",
+    )
+
     # Security
     API_KEY: Optional[str] = Field(
         None, description="Optional API key for securing endpoints"

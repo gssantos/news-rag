@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any, Callable, List
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -19,6 +19,9 @@ class FakeAsyncSession:
         self.rollback = AsyncMock()
         self.add = MagicMock()
         self.merge = AsyncMock()
+        self.refresh = AsyncMock()
+        self.delete = AsyncMock()
+        self.close = AsyncMock()
 
     async def __aenter__(self):
         return self
@@ -159,3 +162,190 @@ def mock_settings():
 
 # Event loop fixture removed - using pytest-asyncio default
 # The deprecated custom event_loop fixture has been removed
+
+
+# -----------------------
+# Additional helpers/fixtures for topic API and scheduler tests
+# -----------------------
+
+
+@pytest.fixture
+def api_client(override_get_db_session, override_get_api_key):
+    """FastAPI TestClient with dependency overrides for DB and API key."""
+    from app.core.security import get_api_key
+    from app.db.session import get_db_session
+    from app.main import app
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_api_key] = override_get_api_key
+    client = TestClient(app)
+    try:
+        yield client
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_scheduler_endpoints(monkeypatch):
+    """Monkeypatch the scheduler used by topic endpoints to a simple stub."""
+    from app.api import topic_endpoints
+
+    stub = MagicMock()
+    stub.schedule_topic = MagicMock()
+    stub.remove_topic = MagicMock()
+    stub.update_topic_schedule = MagicMock()
+    stub.pause_topic = MagicMock()
+    stub.resume_topic = MagicMock()
+
+    monkeypatch.setattr(topic_endpoints, "scheduler", stub)
+    return stub
+
+
+@pytest.fixture
+def make_result_scalar_one() -> Callable[[Any], MagicMock]:
+    """Factory to create a SQLAlchemy-like result with scalar_one_or_none."""
+
+    def _make(obj: Any) -> MagicMock:
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = obj
+        return result
+
+    return _make
+
+
+@pytest.fixture
+def make_result_scalars_all() -> Callable[[List[Any]], MagicMock]:
+    """Factory to create a SQLAlchemy-like result with scalars().all()."""
+
+    def _make(items: List[Any]) -> MagicMock:
+        result = MagicMock()
+        scalars = MagicMock()
+        scalars.all.return_value = items
+        result.scalars.return_value = scalars
+        return result
+
+    return _make
+
+
+@pytest.fixture
+def topic_factory():
+    """Factory to create Topic objects with sensible defaults."""
+    from uuid import uuid4
+
+    from app.models.topic import Topic
+
+    def _make(**overrides):
+        now = datetime.now(timezone.utc)
+        defaults = {
+            "id": uuid4(),
+            "name": "AI News",
+            "slug": "ai-news",
+            "description": "All about AI",
+            "keywords": ["ai", "ml"],
+            "is_active": True,
+            "schedule_interval_minutes": 60,
+            "created_at": now,
+            "updated_at": now,
+            "last_ingestion_at": None,
+            "sources": [],
+            "ingestion_runs": [],
+        }
+        defaults.update(overrides)
+        topic = Topic(
+            name=defaults["name"],
+            slug=defaults["slug"],
+            description=defaults["description"],
+            keywords=defaults["keywords"],
+            is_active=defaults["is_active"],
+            schedule_interval_minutes=defaults["schedule_interval_minutes"],
+        )
+        # Inject fields typically set by DB/ORM
+        topic.id = defaults["id"]
+        topic.created_at = defaults["created_at"]
+        topic.updated_at = defaults["updated_at"]
+        topic.last_ingestion_at = defaults["last_ingestion_at"]
+        topic.sources = defaults["sources"]
+        topic.ingestion_runs = defaults["ingestion_runs"]
+        return topic
+
+    return _make
+
+
+@pytest.fixture
+def source_factory():
+    """Factory to create NewsSource objects with sensible defaults."""
+    from uuid import uuid4
+
+    from app.models.topic import NewsSource, SourceType
+
+    def _make(**overrides):
+        now = datetime.now(timezone.utc)
+        defaults = {
+            "id": uuid4(),
+            "topic_id": uuid4(),
+            "name": "Example RSS",
+            "url": "https://example.com/rss.xml",
+            "source_type": SourceType.RSS,
+            "config": {},
+            "is_active": True,
+            "last_successful_fetch": None,
+            "consecutive_failures": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        defaults.update(overrides)
+        src = NewsSource(
+            topic_id=defaults["topic_id"],
+            name=defaults["name"],
+            url=defaults["url"],
+            source_type=defaults["source_type"],
+            config=defaults["config"],
+            is_active=defaults["is_active"],
+        )
+        src.id = defaults["id"]
+        src.last_successful_fetch = defaults["last_successful_fetch"]
+        src.consecutive_failures = defaults["consecutive_failures"]
+        src.created_at = defaults["created_at"]
+        src.updated_at = defaults["updated_at"]
+        return src
+
+    return _make
+
+
+@pytest.fixture
+def ingestion_run_factory():
+    """Factory to create IngestionRun-like objects with sensible defaults."""
+    from uuid import uuid4
+
+    from app.models.topic import IngestionRun, IngestionStatus
+
+    def _make(**overrides):
+        now = datetime.now(timezone.utc)
+        defaults = {
+            "id": uuid4(),
+            "topic_id": uuid4(),
+            "status": IngestionStatus.PENDING,
+            "articles_discovered": 0,
+            "articles_ingested": 0,
+            "articles_failed": 0,
+            "articles_duplicates": 0,
+            "started_at": now,
+            "completed_at": None,
+            "error_messages": [],
+        }
+        defaults.update(overrides)
+        run = IngestionRun(
+            topic_id=defaults["topic_id"],
+            status=defaults["status"],
+            articles_discovered=defaults["articles_discovered"],
+            articles_ingested=defaults["articles_ingested"],
+            articles_failed=defaults["articles_failed"],
+            articles_duplicates=defaults["articles_duplicates"],
+            started_at=defaults["started_at"],
+            completed_at=defaults["completed_at"],
+            error_messages=defaults["error_messages"],
+        )
+        run.id = defaults["id"]
+        return run
+
+    return _make
