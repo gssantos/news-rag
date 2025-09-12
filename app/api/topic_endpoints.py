@@ -116,7 +116,12 @@ async def get_topic(topic_id: UUID, db: AsyncSession = Depends(get_db_session)):
     return TopicDetailResponse.model_validate(topic)
 
 
-@router.patch("/{topic_id}", response_model=TopicResponse, summary="Update a topic")
+@router.patch(
+    "/{topic_id}",
+    response_model=TopicResponse,
+    summary="Update a topic",
+    description="Update an existing topic by ID.",
+)
 async def update_topic(
     topic_id: UUID,
     request: TopicUpdateRequest,
