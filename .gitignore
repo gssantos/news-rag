@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# Environments
+.env
+.env.*
+.venv/
+
+# VS Code settings
+.vscode/
+.history/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest cache
+.pytest_cache/
+
+# Ruff cache
+.ruff_cache/
+
+# Claude
+.claude/
+
+# Jupyter Notebook
+.ipynb_checkpoints

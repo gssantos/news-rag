@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: news_rag_app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    # Load environment variables from a local .env file
+    env_file:
+      - .env
+    environment:
+      # Ensure the app connects to the 'db' service host (override .env if necessary)
+      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/newsragdb
+    restart: unless-stopped
+
+  db:
+    # Requirement 2: PostgreSQL 17 with pgvector
+    # Using the pgvector image. We use the latest stable version supporting pgvector.
+    # If PG17 image becomes available, update the tag. Using PG16 for compatibility.
+    image: pgvector/pgvector:pg17
+    container_name: news_rag_db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=newsragdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d newsragdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
