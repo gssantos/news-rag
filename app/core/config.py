@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     )
     RSS_DATE_THRESHOLD_HOURS: int = Field(
         24,
-        description="RSS articles date threshold in hours (only articles newer than this will be ingested)",
+        description="RSS article age threshold in hours for ingestion filtering",
     )
 
     # Security
