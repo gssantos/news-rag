@@ -74,6 +74,18 @@ class Settings(BaseSettings):
         alias="ALLOWED_DOMAINS",
     )
 
+    # Evaluation Settings
+    ENABLE_EVALUATION: bool = Field(True, description="Enable evaluation framework")
+    MLFLOW_TRACKING_URI: str = Field(
+        "http://localhost:5000", description="MLFlow tracking server URI"
+    )
+    EVALUATION_BATCH_SIZE: int = Field(
+        10, description="Batch size for evaluation processing"
+    )
+    AUTO_EVALUATE_ON_UPDATE: bool = Field(
+        False, description="Automatically run evaluation when models are updated"
+    )
+
     @computed_field
     def ALLOWED_DOMAINS(self) -> List[str]:
         if self.ALLOWED_DOMAINS_STR:

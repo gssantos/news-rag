@@ -60,6 +60,7 @@ FROM base AS runtime
 # curl is included as a safety measure as some web scraping libraries may utilize it.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     libxml2 \
     libxslt1.1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -89,4 +90,4 @@ EXPOSE 8080
 # Entrypoint: Run migrations and then start the application (Requirement 12)
 # We use the exec form with "sh -c" to allow command chaining (&&).
 # Workers are set to 2 as a reasonable default for an async application.
-CMD ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1"]
+CMD ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1 --loop asyncio"]
