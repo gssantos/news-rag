@@ -130,11 +130,12 @@ def test_client():
 
 
 @pytest.fixture
-def async_client():
+async def async_client():
     """Fixture providing an async HTTP client"""
     import httpx
 
-    return httpx.AsyncClient()
+    async with httpx.AsyncClient() as client:
+        yield client
 
 
 @pytest.fixture(autouse=True)

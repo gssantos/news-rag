@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints import router as v1_router
+from app.api.evaluation_endpoints import router as evaluation_router
 from app.api.topic_endpoints import router as topic_router
 from app.core.config import request_id_var, settings, setup_logging
 from app.core.scheduler import scheduler
@@ -152,6 +153,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 # Using a version prefix is good practice, although not strictly required by the prompt.
 app.include_router(v1_router, prefix="/api/v1")
 app.include_router(topic_router, prefix="/api/v1")
+app.include_router(evaluation_router, prefix="/api/v1")
 
 
 # Health check endpoint (Requirement 10)

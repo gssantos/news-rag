@@ -41,6 +41,16 @@ python-dateutil = "^2.9.0" # For robust date parsing
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"  # For YAML configuration files
 
+# Evaluation Framework
+ragas = "^0.3.4"  # RAG evaluation framework
+mlflow = "^3.3.2"  # Experiment tracking and model management
+datasets = "^4.0.0"  # For managing evaluation datasets
+boto3 = "^1.40.30"  # For MLFlow S3 integration with MinIO
+pandas = "^2.3.2"  # For data manipulation in evaluations
+rouge-score = "^0.1.2"  # For ROUGE metric calculations
+scikit-learn = "^1.7.2"  # For additional metrics
+rich = "^14.1.0"  # For demo visualization
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
