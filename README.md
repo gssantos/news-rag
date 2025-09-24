@@ -1,44 +1,49 @@
 # Simple News RAG Service
-
-A minimal service to ingest, summarize, and search news articles using FastAPI, LangChain, and PostgreSQL with pgvector for semantic search capabilities.
+A minimal service to ingest, summarize, and search news articles using FastAPI, LangChain, and PostgreSQL with pgvector for semantic search capabilities. Includes automatic scheduled ingestion and a comprehensive evaluation framework.
 
 ## Features
-
-- **Article Ingestion**: Extract and process news articles from URLs
-- **AI Summarization**: Generate concise summaries using OpenAI GPT models
-- **Semantic Search**: Vector-based similarity search using pgvector and cosine distance
-- **RESTful API**: Clean, documented API endpoints with OpenAPI/Swagger integration
-- **Error Handling**: Robust error handling with structured logging
-- **Docker Support**: Containerized deployment with Docker Compose
-- **Database Migrations**: Automated schema management with Alembic
-- **Health Monitoring**: Built-in health check endpoints
-- **Automatic Scheduled Ingestion**: Continuously ingest articles for configured topics
-- **Topic Management**: Easy configuration and management of news topics and sources
-- **RSS Feed Support**: Automatic discovery and ingestion from RSS feeds
-- **Deduplication**: Prevent duplicate articles using URL-based deduplication
-- **Ingestion Monitoring**: Track ingestion status and statistics
+- **Article Ingestion**: Extract and process news articles from URLs using LangChain loaders.
+- **AI Summarization**: Generate concise summaries using OpenAI GPT models.
+- **Semantic Search**: Vector-based similarity search using pgvector and cosine distance.
+- **Automatic Scheduled Ingestion**: Continuously ingest articles for configured topics using APScheduler.
+- **Topic Management**: Easy configuration and management of news topics and sources (RSS support included).
+- **Deduplication**: Prevent duplicate articles using URL-based deduplication.
+- **Evaluation Framework**:
+  - **Golden Datasets**: Manage ground truth datasets for evaluation.
+  - **Multi-type Evaluation**: Assess retrieval (Precision/Recall/F1), generation (ROUGE), and end-to-end RAG performance.
+  - **Ragas Integration**: Calculate advanced metrics like Faithfulness and Answer Relevancy.
+  - **MLFlow Integration**: Track experiments, metrics, and model performance.
+- **RESTful API**: Clean, documented API endpoints with OpenAPI/Swagger integration.
+- **Error Handling & Monitoring**: Robust error handling, structured logging, and health checks.
+- **Docker Support**: Containerized deployment with Docker Compose.
+- **Database Migrations**: Automated schema management with Alembic.
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/healthz` | Health check endpoint |
-| `GET` | `/docs` | Interactive API documentation |
-| `POST` | `/api/v1/ingest/url` | Ingest article from URL |
-| `GET` | `/api/v1/search` | Search articles with semantic similarity |
-| `GET` | `/api/v1/content/{id}` | Get full article content by ID |
-| **Topics** | | |
-| `POST` | `/api/v1/topics` | Create a new topic |
-| `GET` | `/api/v1/topics` | List all topics |
-| `GET` | `/api/v1/topics/{id}` | Get topic details |
-| `PATCH` | `/api/v1/topics/{id}` | Update a topic |
-| `DELETE` | `/api/v1/topics/{id}` | Delete a topic |
-| `POST` | `/api/v1/topics/{id}/sources` | Add source to topic |
-| `GET` | `/api/v1/topics/{id}/sources` | List topic sources |
-| `DELETE` | `/api/v1/topics/{id}/sources/{source_id}` | Delete source |
-| `POST` | `/api/v1/topics/{id}/ingest` | Trigger manual ingestion |
-| `GET` | `/api/v1/topics/{id}/runs` | Get ingestion history |
-| `GET` | `/api/v1/topics/stats/summary` | Get ingestion statistics |
+| GET | /healthz | Health check endpoint |
+| GET | /docs | Interactive API documentation |
+| **Core RAG** |  |  |
+| POST | /api/v1/ingest/url | Ingest article from URL |
+| GET | /api/v1/search | Search articles with semantic similarity |
+| GET | /api/v1/content/{id} | Get full article content by ID |
+| **Topics & Ingestion** |  |  |
+| POST | /api/v1/topics | Create a new topic |
+| GET | /api/v1/topics | List all topics |
+| GET | /api/v1/topics/{id} | Get topic details |
+| PATCH | /api/v1/topics/{id} | Update a topic |
+| DELETE | /api/v1/topics/{id} | Delete a topic |
+| POST | /api/v1/topics/{id}/sources | Add source to topic |
+| GET | /api/v1/topics/{id}/sources | List topic sources |
+| DELETE | /api/v1/topics/{id}/sources/{source_id} | Delete source |
+| POST | /api/v1/topics/{id}/ingest | Trigger manual ingestion |
+| GET | /api/v1/topics/stats/summary | Get ingestion statistics |
+| **Evaluation Framework** |  |  |
+| POST | /api/v1/evaluation/golden-datasets | Create a golden dataset |
+| POST | /api/v1/evaluation/run | Run an evaluation against a dataset |
+| GET | /api/v1/evaluation/history | Get evaluation run history |
+| POST | /api/v1/evaluation/compare | Compare metrics across multiple runs |
 
 ## Quick Start with Docker Compose
 
@@ -46,13 +51,21 @@ A minimal service to ingest, summarize, and search news articles using FastAPI, 
    ```bash
    git clone <repository-url>
    cd news-rag
-   cp .env.example .env
+   # Create a .env file for configuration
+   touch .env
    ```
 
-2. **Set required environment variables in `.env`**:
+2. **Set required environment variables in .env**:
+   
+   Note: The DATABASE_URL below matches the credentials and service name defined in docker-compose.yml.
+   
    ```bash
-   DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/newsrag
+   # Connection string for the 'db' service in Docker Compose
+   DATABASE_URL=postgresql+asyncpg://user:password@db:5432/newsragdb
    OPENAI_API_KEY=your_openai_api_key_here
+   
+   # Optional: If using MLFlow tracking server
+   # MLFLOW_TRACKING_URI=http://localhost:5000
    ```
 
 3. **Start the services**:
@@ -67,146 +80,111 @@ A minimal service to ingest, summarize, and search news articles using FastAPI, 
 ## Development Setup
 
 ### Prerequisites
-
-- Python 3.13
-- PostgreSQL with pgvector extension
-- Poetry for dependency management
+- Python 3.10+
+- PostgreSQL (16+) with pgvector extension
 - OpenAI API key
 
 ### Installation
 
-1. **Install dependencies**:
+This project uses Poetry for dependency management.
+
+1. **Install Poetry** (if not already installed):
+   ```bash
+   curl -sSL https://install.python-poetry.org | python3 -
+   ```
+
+2. **Install dependencies**:
    ```bash
    poetry install
    ```
 
-2. **Set up environment variables**:
+3. **Set up environment variables**: Create a .env file in the root directory.
+   
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   # Example for local development connection
+   DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/newsragdb
+   OPENAI_API_KEY=your_openai_api_key_here
    ```
 
-3. **Start PostgreSQL and run migrations**:
+4. **Run migrations**:
    ```bash
-   alembic upgrade head
+   poetry run alembic upgrade head
    ```
 
-4. **Run the development server**:
+5. **Run the development server**:
    ```bash
    poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
    ```
 
 ## Usage Examples
+*(Examples assume the service is running on http://localhost:8080)*
 
 ### Ingest an article
-
 ```bash
 curl -X POST "http://localhost:8080/api/v1/ingest/url" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.bbc.co.uk/news/articles/cy85905dj2wo"}'
 ```
 
-**Response:**
-```json
-{
-  "id": "57f0fc26-1e6d-402d-b478-fbcba838e5fd",
-  "url": "https://www.bbc.co.uk/news/articles/cy85905dj2wo",
-  "title": "UK's first 'super-university' to be created as two merge from 2026",
-  "summary": "The universities of Kent and Greenwich will merge...",
-  "created_at": "2025-09-10T14:47:10.866606Z"
-}
-```
-
 ### Search articles
-
 ```bash
 curl -X GET "http://localhost:8080/api/v1/search?query=university%20merger&k=5"
 ```
 
-**Response:**
-```json
-{
-  "hits": [
-    {
-      "id": "57f0fc26-1e6d-402d-b478-fbcba838e5fd",
-      "title": "UK's first 'super-university' to be created as two merge from 2026",
-      "summary": "The universities of Kent and Greenwich will merge...",
-      "score": 0.48149728664739655
-    }
-  ]
-}
-```
-
-### Get article content
-
+### Create a Topic for Automatic Ingestion
 ```bash
-curl -X GET "http://localhost:8080/api/v1/content/57f0fc26-1e6d-402d-b478-fbcba838e5fd"
-```
-
-**Response:**
-```json
-{
-  "id": "57f0fc26-1e6d-402d-b478-fbcba838e5fd",
-  "url": "https://www.bbc.co.uk/news/articles/cy85905dj2wo",
-  "title": "UK's first 'super-university' to be created as two merge from 2026",
-  "content": "Full article text...",
-  "summary": "Article summary...",
-  "llm_model": "gpt-5-mini",
-  "embed_model": "text-embedding-3-small"
-}
-```
-
-## Configuration
-
-### Required
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://user:pass@host:5432/db` |
-| `OPENAI_API_KEY` | OpenAI API key for LLM and embeddings | `sk-...` |
-
-### Optional
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLM_MODEL` | `gpt-5-mini` | OpenAI model for summarization |
-| `EMB_MODEL` | `text-embedding-3-small` | OpenAI model for embeddings |
-| `EMB_DIM` | `1536` | Embedding dimension (must match model) |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `HTTP_FETCH_TIMEOUT_SECONDS` | `15` | URL fetch timeout |
-| `MAX_CONTENT_CHARS` | `200000` | Maximum content length |
-| `API_KEY` | `None` | Optional API key for endpoint protection |
-| `ALLOWED_DOMAINS` | `None` | Comma-separated list of allowed domains |
-| `ENABLE_SCHEDULER` | `True` | Enable automatic scheduled ingestion |
-| `SCHEDULER_MAX_INSTANCES` | `1` | Maximum concurrent ingestion tasks |
-| `DEFAULT_SCHEDULE_INTERVAL_MINUTES` | `60` | Default ingestion interval |
-
-## Automatic Ingestion Setup
-
-The service supports automatic, scheduled ingestion of articles for configured topics. This feature enables continuous monitoring of news sources for specific domains like energy markets, shipping, and commodities.
-
-### Topic Configuration
-
-Topics can be configured in two ways:
-
-#### 1. Using the API
-
-Create topics programmatically:
-
-```bash
-# Create a topic for crude oil markets
 curl -X POST "http://localhost:8080/api/v1/topics" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Crude Oil Markets",
-    "slug": "crude-oil-markets",
-    "description": "News about crude oil prices and markets",
-    "keywords": ["crude oil", "WTI", "Brent", "OPEC"],
-    "schedule_interval_minutes": 60,
+    "name": "Technology News",
+    "slug": "tech-news",
+    "schedule_interval_minutes": 120,
     "is_active": true
   }'
+```
 
-# Add an RSS source to the topic
+## Configuration
+Configuration is managed via environment variables, loaded using Pydantic Settings.
+
+### Required
+| Variable | Description | Example |
+|----------|-------------|---------|
+| DATABASE_URL | PostgreSQL connection string (must use asyncpg driver) | postgresql+asyncpg://user:pass@host:5432/db |
+| OPENAI_API_KEY | OpenAI API key for LLM and embeddings | sk-... |
+
+### Optional
+| Variable | Default | Description |
+|----------|---------|-------------|
+| **General** |  |  |
+| LLM_MODEL | gpt-5-mini | OpenAI model for summarization |
+| EMB_MODEL | text-embedding-3-small | OpenAI model for embeddings |
+| EMB_DIM | 1536 | Embedding dimension (must match model) |
+| LOG_LEVEL | INFO | Logging level |
+| API_KEY | None | Optional API key for endpoint protection (X-API-Key header) |
+| ALLOWED_DOMAINS | None | Comma-separated list of allowed domains for ingestion |
+| **Ingestion & Scheduling** |  |  |
+| HTTP_FETCH_TIMEOUT_SECONDS | 15 | URL fetch timeout |
+| MAX_CONTENT_CHARS | 200000 | Maximum content length to process |
+| ENABLE_SCHEDULER | True | Enable automatic scheduled ingestion |
+| DEFAULT_SCHEDULE_INTERVAL_MINUTES | 60 | Default ingestion interval |
+| RSS_DATE_THRESHOLD_HOURS | 24 | How far back to look in RSS feeds |
+| **Evaluation** |  |  |
+| ENABLE_EVALUATION | True | Enable the evaluation framework |
+| MLFLOW_TRACKING_URI | http://localhost:5000 | URI for the MLFlow tracking server |
+| EVALUATION_BATCH_SIZE | 10 | Batch size for evaluation processing |
+| AUTO_EVALUATE_ON_UPDATE | False | Automatically run evaluation when models change |
+
+## Automatic Ingestion Setup
+The service supports automatic, scheduled ingestion of articles for configured topics.
+
+### Topic Configuration
+Topics can be configured via the API or using a YAML configuration file.
+
+#### 1. Using the API
+See the "Create a Topic" usage example above. After creating a topic, add sources:
+
+```bash
+# Add an RSS source to the topic (replace {topic_id} with the actual ID)
 curl -X POST "http://localhost:8080/api/v1/topics/{topic_id}/sources" \
   -H "Content-Type: application/json" \
   -d '{
@@ -218,38 +196,23 @@ curl -X POST "http://localhost:8080/api/v1/topics/{topic_id}/sources" \
 ```
 
 #### 2. Using YAML Configuration
-
-Create a `config/topics.yaml` file:
+Create a `config/topics.yaml` file. Topics defined here are loaded automatically on startup by `app/utils/topic_loader.py`.
 
 ```yaml
+# config/topics.yaml
 topics:
   - name: "Crude Oil Markets"
     slug: "crude-oil-markets"
-    description: "News about crude oil markets"
-    keywords:
-      - "crude oil"
-      - "WTI"
-      - "Brent"
     schedule_interval_minutes: 60
     is_active: true
     sources:
       - name: "OilPrice.com RSS"
         url: "https://oilprice.com/rss/main"
         source_type: "rss"
-        is_active: true
 ```
 
-Topics defined in `topics.yaml` are loaded automatically on startup if the file exists.
-
-### Scheduling Options
-
-- **Interval-based**: Topics are scheduled to run at fixed intervals (5 minutes to 1 week)
-- **Manual Triggering**: Use the API to trigger immediate ingestion for any topic
-- **Active/Inactive**: Topics can be paused without deletion
-
 ### Monitoring Ingestion
-
-#### View Ingestion Status
+Monitor ingestion status and history via the API:
 
 ```bash
 # Get overall statistics
@@ -257,211 +220,178 @@ curl "http://localhost:8080/api/v1/topics/stats/summary"
 
 # Get ingestion history for a topic
 curl "http://localhost:8080/api/v1/topics/{topic_id}/runs"
-
-# View logs
-docker compose logs -f app | grep "ingestion"
 ```
 
-#### Understanding Ingestion Runs
+## Evaluation Framework
+The service includes a comprehensive framework for evaluating the performance of the RAG pipeline using golden datasets. It integrates with Ragas for metric calculation and MLFlow for experiment tracking.
 
-Each ingestion run tracks:
-- **articles_discovered**: Total URLs found from all sources
-- **articles_ingested**: Successfully processed new articles
-- **articles_duplicates**: Articles already in database (deduplication working)
-- **articles_failed**: Articles that failed to process
-- **status**: `success`, `partial`, or `failed`
-- **error_messages**: Detailed error information
+### Concepts
+- **Golden Dataset**: A curated set of queries with expected answers and/or expected retrieved documents (ground truth).
+- **Evaluation Run**: An execution of the RAG pipeline against a Golden Dataset.
 
-### Deduplication
+### Evaluation Types
 
-The system prevents duplicate articles through:
-1. **URL-based deduplication**: Articles with the same URL are not re-ingested
-2. **Database constraints**: Unique index on article URLs
-3. **Topic linking**: Existing articles are linked to new topics without re-processing
+1. **Retrieval Evaluation** (`retrieval`): Assesses the accuracy of the vector search component.
+   - **Metrics**: Precision@k, Recall@k, F1 Score.
 
-### Best Practices
+2. **Generation Evaluation** (`generation`): Assesses the quality of the generated summaries/answers compared to ground truth answers.
+   - **Metrics**: ROUGE-1, ROUGE-2, ROUGE-L.
 
-1. **Start with Conservative Schedules**: Begin with longer intervals (2-4 hours) to avoid rate limiting
-2. **Monitor Source Health**: Check `consecutive_failures` on sources to identify problematic feeds
-3. **Use Keywords Wisely**: Keywords help filter relevant content during ingestion
-4. **Regular Cleanup**: Periodically review and remove inactive topics/sources
-5. **API Key Protection**: Use `API_KEY` environment variable in production
+3. **End-to-End Evaluation** (`end_to_end`): Assesses the entire pipeline from query to final answer.
+   - **Metrics** (powered by Ragas): Context Precision, Context Recall, Faithfulness, Answer Relevancy.
 
-### Troubleshooting
+### Workflow
 
-**Issue: No articles being ingested**
-- Check if the topic and sources are active
-- Verify RSS feed URLs are accessible
-- Review logs for specific error messages
+#### 1. Setup MLFlow (Optional)
+To track evaluations visually, run an MLFlow server.
 
-**Issue: High duplicate count**
-- This is normal and indicates deduplication is working
-- RSS feeds often contain the same articles for days
+```bash
+poetry run mlflow server --host 0.0.0.0 --port 5000
+```
 
-**Issue: Ingestion taking too long**
-- Reduce the number of sources per topic
-- Increase `HTTP_FETCH_TIMEOUT_SECONDS` for slow sources
-- Consider increasing `schedule_interval_minutes`
+Ensure `MLFLOW_TRACKING_URI` in the application's `.env` points to this server.
 
-**Issue: Memory/CPU usage high**
-- Reduce `SCHEDULER_MAX_INSTANCES` to limit concurrent tasks
-- Stagger topic schedules to avoid simultaneous runs
+#### 2. Create a Golden Dataset
+Define your evaluation criteria and ground truth data.
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/evaluation/golden-datasets" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Q4 2025 Technology Trends Evaluation",
+    "version": "1.0.0",
+    "queries": [
+      {
+        "query_text": "What are the recent advancements in AI?",
+        "expected_answer": "Recent advancements include large multimodal models...",
+        "expected_article_ids": ["uuid-of-relevant-article-1"]
+      }
+    ]
+  }'
+```
+
+**Tip**: Use the `scripts/init_golden_dataset.py` script to bootstrap an initial dataset based on existing articles.
+
+#### 3. Run an Evaluation
+Trigger an evaluation run against the dataset.
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/evaluation/run" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": "uuid-of-the-dataset",
+    "evaluation_type": "end_to_end"
+  }'
+```
+
+#### 4. Analyze Results
+Results are stored in the database and tracked in MLFlow.
+
+**View History**:
+```bash
+curl "http://localhost:8080/api/v1/evaluation/history?dataset_id=uuid-of-the-dataset"
+```
+
+**Compare Runs**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/evaluation/compare" \
+  -H "Content-Type: application/json" \
+  -d '["uuid-of-run-1", "uuid-of-run-2"]'
+```
+
+**MLFlow UI**: Access the MLFlow UI (default: http://localhost:5000) to view detailed metrics and trends.
+
+### Demo Scripts
+The project includes demo scripts to showcase functionality:
+
+- `demo_ingestion.py`: Demonstrates the automatic ingestion workflow via API calls.
+- `demo_evaluation.py`: A self-contained demonstration of the evaluation logic.
+- `scripts/evaluation_demo.py`: An end-to-end demo running evaluations against the service.
 
 ## Security Features
-
-- **Optional API Key Authentication**: Protect endpoints with API key
-- **Domain Restrictions**: Limit ingestion to specific domains
-- **Input Validation**: Comprehensive request validation with Pydantic
-- **Error Sanitization**: Structured error responses without sensitive data
-- **Non-root Container**: Docker container runs as non-root user
-- **Request ID Tracking**: Structured logging with request correlation IDs
+- **Optional API Key Authentication**: Protect endpoints with the `API_KEY` environment variable (use `X-API-Key` header).
+- **SSRF Protection**: Validates ingested URLs to prevent access to internal networks (localhost, private IPs, reserved ranges). Implemented in `app/core/security.py`.
+- **Domain Restrictions**: Limit ingestion to specific domains using the `ALLOWED_DOMAINS` environment variable.
+- **Input Validation**: Comprehensive request validation with Pydantic.
+- **Request ID Tracking**: Structured logging with request correlation IDs for traceability.
 
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   FastAPI       │    │   LangChain      │    │  PostgreSQL     │
-│   Web Server    │────│   Integration    │────│  + pgvector     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌────────────────┐               │
-         │              │   OpenAI API   │               │
-         └──────────────│   (LLM + Embed)│───────────────┘
-                        └────────────────┘
+                                 ┌────────────────┐
+                                 │   OpenAI API   │
+                                 │ (LLM + Embed)  │
+                                 └────────────────┘
+                                        ▲
+                                        │
+┌──────────────┐     ┌────────────┐     │     ┌───────────┐     ┌────────────┐
+│   Scheduler  ├─────▶   FastAPI  ◀─────┴─────┤ LangChain ├─────▶ PostgreSQL │
+│ (APScheduler)│     │ (Async API)│           │Integration│     │ + pgvector │
+└──────────────┘     └────────────┘           └───────────┘     └────────────┘
+                            │
+                            ▼
+                     ┌─────────────┐
+                     │ Evaluation  │
+                     │(Ragas/ROUGE)│
+                     └─────────────┘
+                            │
+                            ▼
+                     ┌────────────┐
+                     │   MLFlow   │
+                     │  Tracking  │
+                     └────────────┘
 ```
 
-**Key Components:**
-- **FastAPI**: Modern, async web framework with automatic documentation
-- **LangChain**: Document loading and LLM integration
-- **pgvector**: PostgreSQL extension for vector similarity search
-- **Alembic**: Database migration management
-- **Pydantic**: Data validation and settings management
+### Key Components:
+- **FastAPI**: Modern, async web framework.
+- **LangChain**: Document loading (NewsURLLoader, WebBaseLoader) and LLM integration.
+- **pgvector**: PostgreSQL extension for vector similarity search.
+- **Alembic**: Database migration management.
+- **APScheduler**: For scheduled ingestion tasks (`app/core/scheduler.py`).
+- **Ragas/ROUGE**: For evaluation metrics.
+- **MLFlow**: Experiment tracking and metric logging.
 
 ## Testing
+The project uses pytest. Configuration is in `pytest.ini`.
 
-Run the test suite:
+Run the test suite (assuming tests are present in the `tests` directory):
+
 ```bash
 poetry run pytest
 ```
 
-Run with coverage:
-```bash
-poetry run pytest --cov=app --cov-report=html
-```
-
-## Development Tools
-
-### Code Formatting and Linting
-
-```bash
-# Format code with Black
-poetry run black app/
-
-# Sort imports with isort
-poetry run isort app/
-
-# Lint with Ruff
-poetry run ruff check app/
-
-# Type checking with MyPy
-poetry run mypy app/
-```
-
-### Adding New Dependencies
-
-```bash
-# Add production dependency
-poetry add package-name
-
-# Add development dependency
-poetry add --group dev package-name
-```
-
 ## Docker Deployment
-
-**Production deployment with Docker Compose:**
+The `docker-compose.yml` file defines the application and database services.
 
 ```yaml
 version: '3.8'
 services:
   app:
     build: .
-    ports:
-      - "8080:8080"
+    # ... (see docker-compose.yml for full configuration)
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/newsrag
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - db
-    
+      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/newsragdb
+      # ...
   db:
+    # Uses PostgreSQL 17 image as defined in docker-compose.yml
     image: pgvector/pgvector:pg17
-    environment:
-      - POSTGRES_DB=newsrag
-      - POSTGRES_PASSWORD=password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    
-volumes:
-  postgres_data:
+    # ...
 ```
 
 ## Performance Notes
-
-- **Vector Search**: Uses cosine distance for semantic similarity
-- **Connection Pooling**: Async SQLAlchemy connection pool
-- **Batch Processing**: Consider batching for large ingestion volumes
-- **Embedding Cache**: Embeddings are stored and reused
-- **Memory Usage**: Monitor memory usage with large articles
-- **Database Indexing**: pgvector indexes optimize search performance
+- **Vector Search**: Uses cosine distance. Embeddings are normalized (L2 norm) client-side before storage.
+- **Indexing**: Utilizes ivfflat indexes on the `articles.embedding` column for efficient vector search.
+- **Connection Pooling**: Async SQLAlchemy connection pool configured in `app/db/session.py`.
 
 ## Troubleshooting
 
-### Common Issues
-
-**1. Import Error: lxml.html.clean**
-```bash
-# Solution: Install lxml with html_clean extra
-poetry add "lxml[html_clean]"
-```
-
-**2. Async Event Loop Conflicts**
-```bash
-# Check logs for "asyncio.run() cannot be called from a running event loop"
-# Solution: Use ThreadPoolExecutor for sync operations
-```
-
-**3. Database Connection Failed**
-```bash
-# Verify DATABASE_URL format and pgvector extension
-psql -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-**4. OpenAI API Errors**
-```bash
-# Check API key and rate limits
-export OPENAI_API_KEY="your-key-here"
-```
-
 ### Logs
+View application logs:
 
-**View application logs:**
 ```bash
 # Docker Compose
 docker compose logs -f app
-
-# Direct Python
-poetry run uvicorn app.main:app --log-level debug
 ```
 
-**Common log patterns:**
-- `Request started/finished`: HTTP request lifecycle
-- `Starting ingestion`: Article processing begins
-- `Successfully extracted content`: Content fetched successfully
-- `Database session error`: Database operation failed
-- `LLM service error`: OpenAI API issues
-
-**Enable debug logging:**
-```bash
-export LOG_LEVEL=DEBUG
-```
+**Enable debug logging**:
+Set `LOG_LEVEL=DEBUG` in the `.env` file.
