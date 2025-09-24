@@ -31,3 +31,6 @@ dmypy.json
 
 # Scratch files
 .scratch/
+
+# MLFlow runs
+mlruns/
